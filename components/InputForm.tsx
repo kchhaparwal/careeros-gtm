@@ -79,10 +79,24 @@ export default function InputForm() {
         formData.append('content', textContent);
       }
 
-      const res  = await fetch('/api/analyze', { method: 'POST', body: formData });
-      const data = await res.json();
+      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
 
-      if (!res.ok) throw new Error(data.error || 'Something went wrong');
+      if (!res.ok) {
+        let errorMsg = 'Something went wrong. Please try again.';
+        if (res.status === 504 || res.status === 408) {
+          errorMsg = 'Analysis is taking too long — gpt-4o is busy. Please try again in a moment.';
+        } else {
+          try {
+            const errData = await res.json();
+            errorMsg = errData.error || errorMsg;
+          } catch {
+            // non-JSON error body (e.g. Vercel HTML error page)
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
+      const data = await res.json();
 
       localStorage.setItem('careeros_result', JSON.stringify(data as AnalysisResult));
       router.push('/results');
