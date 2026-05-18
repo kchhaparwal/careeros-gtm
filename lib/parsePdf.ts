@@ -1,29 +1,21 @@
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { TextItem } from 'pdfjs-dist/types/src/display/api';
-
-// Point pdfjs at the bundled worker file using an absolute URL — required for Node.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/legacy/build/pdf.worker.mjs',
-  import.meta.url
-).toString();
+import PDFParser from 'pdf2json';
 
 export async function parsePdfBuffer(buffer: Buffer): Promise<string> {
-  const data = new Uint8Array(buffer);
-  const doc = await pdfjsLib.getDocument({
-    data,
-    useWorkerFetch: false,
-    isEvalSupported: false,
-  }).promise;
+  return new Promise((resolve, reject) => {
+    const parser = new PDFParser();
 
-  const pages: string[] = [];
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .filter((item): item is TextItem => 'str' in item)
-      .map((item) => item.str)
-      .join(' ');
-    pages.push(pageText);
-  }
-  return pages.join('\n');
+    parser.on('pdfParser_dataReady', (data) => {
+      const text = data.Pages.map((page) =>
+        page.Texts.map((t) => decodeURIComponent(t.R[0]?.T ?? '')).join(' ')
+      ).join('\n');
+      resolve(text);
+    });
+
+    parser.on('pdfParser_dataError', (err) => {
+      const msg = 'parserError' in err ? (err as { parserError: Error }).parserError.message : 'PDF parsing failed';
+      reject(new Error(msg));
+    });
+
+    parser.parseBuffer(buffer);
+  });
 }
