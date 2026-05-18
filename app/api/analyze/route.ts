@@ -36,9 +36,12 @@ export async function POST(request: NextRequest) {
     const result = await analyzeProfile(content, goal);
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Analysis error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : '';
+    console.error('Analysis error full:', message);
+    console.error('Analysis error stack:', stack);
     return NextResponse.json(
-      { error: 'Analysis failed. Please check your API key and try again.' },
+      { error: `Analysis failed: ${message}` },
       { status: 500 }
     );
   }
